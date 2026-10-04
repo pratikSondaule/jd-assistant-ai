@@ -41,5 +41,18 @@ export const jdJsonSchema = {
             type: "string",
         }
     },
-    required: ["jobTitle", "company", "responsibilities", "requiredSkills"]
+    required: [
+        "valid",
+        "message",
+        "jobTitle",
+        "company",
+        "location",
+        "experience",
+        "salaryRange",
+        "employmentType",
+        "responsibilities",
+        "requiredSkills",
+        "niceToHaveSkills",
+        "education"
+    ]
 }
