@@ -4,7 +4,7 @@ import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 export class StartChatDto {
     @ApiProperty({
         example: "Hi there!",
-        description: "Message from user"
+        description: "Paste your job description"
     })
     @IsString()
     @IsNotEmpty()
