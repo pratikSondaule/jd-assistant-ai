@@ -7,6 +7,7 @@ import { authRefreshToken, users } from 'src/db/schema';
 import { and, eq } from 'drizzle-orm';
 import md5 from 'md5';
 import { GenerateAccessTokenDto } from './dto/generateAccessToken.dto';
+import { RegisterUserDto } from './dto/registerUser.dto';
 
 @Injectable()
 export class AuthService {
@@ -51,6 +52,39 @@ export class AuthService {
         };
     }
 
+
+    async createUser(data: RegisterUserDto) {
+
+        const [existingUser] = await this.db.select()
+            .from(users)
+            .where(eq(users.email, data?.email))
+
+        if (existingUser) {
+            throw new HttpException("User already exists", HttpStatus.CONFLICT);
+        }
+
+        try {
+
+            const hashedPassword = md5(data?.password?.trim() || '');
+
+            await this.db.insert(users).values({
+                name: data.name,
+                email: data.email,
+                password: hashedPassword,
+            })
+
+            return {
+                status: true,
+                statusCode: HttpStatus.CREATED,
+                message: "User created successfully"
+            }
+
+        } catch (error) {
+            console.log(error)
+            throw new HttpException("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+
+    }
 
 
     async login(data: UserLoginDto) {
@@ -173,6 +207,28 @@ export class AuthService {
         } catch (error) {
             console.error(error);
             throw new HttpException("Invalid or expired refresh token", HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+
+    async getLogedInUser(request: any) {
+
+        const userId = request?.user?.id
+
+        try {
+            const [user] = await this.db.select()
+                .from(users)
+                .where(eq(users.id, userId));
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: user,
+                message: "User fetched successfully",
+            }
+        } catch (error) {
+            console.log(error)
+            throw new HttpException("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR)
         }
     }
 

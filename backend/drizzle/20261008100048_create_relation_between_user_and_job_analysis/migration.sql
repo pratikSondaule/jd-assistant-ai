@@ -1,0 +1,2 @@
+ALTER TABLE "job_analysis" ADD COLUMN "user_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "job_analysis" ADD CONSTRAINT "job_analysis_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id");

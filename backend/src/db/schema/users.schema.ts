@@ -1,9 +1,11 @@
+import { relations } from "drizzle-orm/_relations";
 import {
     pgTable,
     timestamp,
     uuid,
     varchar,
 } from "drizzle-orm/pg-core";
+import { jobAnalysis } from "./jobAnalysis.schema";
 
 export const users = pgTable('users', {
     id: uuid("id")
@@ -31,6 +33,10 @@ export const users = pgTable('users', {
         .defaultNow()
         .notNull(),
 });
+
+export const usersRelations = relations(users, ({ many }) => ({
+    jobAnalysis: many(jobAnalysis),
+}));
 
 export type Users = typeof users.$inferSelect;
 export type NewUsers = typeof users.$inferInsert;

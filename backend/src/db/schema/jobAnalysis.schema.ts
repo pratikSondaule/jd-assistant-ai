@@ -5,11 +5,17 @@ import {
     uuid,
     varchar,
 } from "drizzle-orm/pg-core";
+import { users } from "./users.schema";
+import { relations } from "drizzle-orm/_relations";
 
 export const jobAnalysis = pgTable('job_analysis', {
     id: uuid("id")
         .defaultRandom()
         .primaryKey(),
+
+    userId: uuid("user_id")
+        .notNull()
+        .references(() => users.id),
 
     jobDescription: text("job_description")
         .notNull(),
@@ -55,6 +61,14 @@ export const jobAnalysis = pgTable('job_analysis', {
         .defaultNow()
         .notNull(),
 });
+
+
+export const jobAnalysisRelations = relations(jobAnalysis, ({ one }) => ({
+    user: one(users, {
+        fields: [jobAnalysis.userId],
+        references: [users.id],
+    }),
+}));
 
 export type JobAnalysis = typeof jobAnalysis.$inferSelect;
 export type NewJobAnalysis = typeof jobAnalysis.$inferInsert;

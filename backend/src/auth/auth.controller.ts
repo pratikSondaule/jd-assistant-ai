@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { UserLoginDto } from './dto/userLogin.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GenerateAccessTokenDto } from './dto/generateAccessToken.dto';
+import { RegisterUserDto } from './dto/registerUser.dto';
 
 @ApiTags("Auth")
 @Controller('auth')
@@ -13,7 +14,13 @@ export class AuthController {
         private readonly authService: AuthService
     ) { }
 
-    @ApiOperation({ summary: "Login User" })
+    @ApiOperation({ summary: "User Registration" })
+    @Post('register')
+    async register(@Body() data: RegisterUserDto) {
+        return this.authService.createUser(data);
+    }
+
+    @ApiOperation({ summary: "User Login" })
     @Post('login')
     async login(@Body() data: UserLoginDto) {
         return this.authService.login(data);
@@ -49,6 +56,15 @@ export class AuthController {
         @Body() data: GenerateAccessTokenDto
     ) {
         return this.authService.generateAccessTokenFromRefreshToken(data);
+    }
+
+
+    @ApiOperation({ summary: "Get Current Loged In User" })
+    @ApiBearerAuth()
+    @Get('me')
+    @UseGuards(AuthGuard('jwt'))
+    async getLogedInUser(@Req() req: any) {
+        return this.authService.getLogedInUser(req);
     }
 
 }
