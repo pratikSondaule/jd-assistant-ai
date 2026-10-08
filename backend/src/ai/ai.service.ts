@@ -6,7 +6,7 @@ import { jdSystemPrompt } from './prompt';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobAnalysis } from '../db/schema/index';
-import { count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class AiService {
@@ -21,7 +21,13 @@ export class AiService {
         })
     }
 
-    async sendMessage(data: StartChatDto) {
+    async sendMessage(request: any, data: StartChatDto) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
 
         try {
 
@@ -51,6 +57,7 @@ export class AiService {
             }
 
             await this.db.insert(jobAnalysis).values({
+                userId,
                 jobDescription: data.message,
                 jobTitle: response.jobTitle,
                 company: response.company,
@@ -78,12 +85,23 @@ export class AiService {
     }
 
 
-    async getJdAnalysisById(id: string) {
+    async getJdAnalysisById(request: any, id: string) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
 
         try {
             const [jdAnalysis] = await this.db.select()
                 .from(jobAnalysis)
-                .where(eq(jobAnalysis.id, id))
+                .where(
+                    and(
+                        eq(jobAnalysis.id, id),
+                        eq(jobAnalysis.userId, userId)
+                    )
+                )
 
             if (!jdAnalysis) {
                 return {
@@ -107,9 +125,16 @@ export class AiService {
 
 
     async getAllJdAnalysis(
+        request: any,
         page?: string,
         limit?: string
     ) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
 
         const pageNumber = page ? Math.max(1, Number(page)) : 1
         const limitNumber = limit ? Math.max(1, Number(limit)) : 10
@@ -119,12 +144,14 @@ export class AiService {
             const [allJdAnalysis, [{ totalCount }]] = await Promise.all([
                 this.db.select()
                     .from(jobAnalysis)
+                    .where(eq(jobAnalysis.userId, userId))
                     .orderBy(desc(jobAnalysis.createdAt))
                     .limit(limitNumber)
                     .offset((pageNumber - 1) * limitNumber),
 
                 this.db.select({ totalCount: count() })
-                    .from(jobAnalysis),
+                    .from(jobAnalysis)
+                    .where(eq(jobAnalysis.userId, userId)),
             ])
 
             const lastPage = Math.ceil(totalCount / limitNumber)

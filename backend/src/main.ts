@@ -12,6 +12,7 @@ async function bootstrap() {
     .setTitle('JD Assistant AI')
     .setDescription('JD Assistant AI API')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);

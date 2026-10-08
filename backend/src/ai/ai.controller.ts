@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AiService } from './ai.service';
 import { StartChatDto } from './dto/startChat.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags("AI Assistant")
 @Controller('ai')
@@ -14,11 +15,14 @@ export class AiController {
     @ApiOperation({
         summary: "Send message to AI Assistant",
     })
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard("jwt"))
     @Post("chat")
     sendMessage(
+        @Req() request: Request,
         @Body() data: StartChatDto
     ) {
-        return this.aiService.sendMessage(data);
+        return this.aiService.sendMessage(request, data);
     }
 
 
@@ -29,11 +33,14 @@ export class AiController {
         name: 'id',
         type: String
     })
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard("jwt"))
     @Get("analysis/:id")
     getJdAnalysisById(
+        @Req() request: Request,
         @Query("id") id: string
     ) {
-        return this.aiService.getJdAnalysisById(id)
+        return this.aiService.getJdAnalysisById(request, id)
     }
 
 
@@ -50,11 +57,14 @@ export class AiController {
         type: String,
         required: false
     })
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard("jwt"))
     @Get("analysis")
     getAllJdAnalysis(
+        @Req() request: Request,
         @Query("page") page?: string,
         @Query("limit") limit?: string
     ) {
-        return this.aiService.getAllJdAnalysis(page, limit)
+        return this.aiService.getAllJdAnalysis(request, page, limit)
     }
 }
