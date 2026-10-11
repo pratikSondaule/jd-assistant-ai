@@ -33,10 +33,7 @@ export const userResumes = pgTable('user_resumes', {
         .$type<{
             company: string;
             role: string;
-            duration: {
-                startDate: string;
-                endDate: string;
-            };
+            duration: string;
             responsibilities: string[];
         }[]>()
         .notNull()

@@ -1,8 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { StartChatDto } from './dto/startChat.dto';
-import { jdJsonSchema } from './jdSchema';
-import { jdSystemPrompt } from './prompt';
+import { jdJsonSchema } from './schema/jd.schema';
+import { jdSystemPrompt } from './prompt/jd.prompt';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobAnalysis } from '../db/schema/index';
