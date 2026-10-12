@@ -21,12 +21,10 @@ export const userResumes = pgTable('user_resumes', {
     resumeText: text('resume_text')
         .notNull(),
 
-    aiSummary: text('ai_summary')
-        .notNull(),
+    aiSummary: text('ai_summary'),
 
     skills: jsonb('skills')
         .$type<string[]>()
-        .notNull()
         .default([]),
 
     experience: jsonb("experience")
@@ -36,7 +34,6 @@ export const userResumes = pgTable('user_resumes', {
             duration: string;
             responsibilities: string[];
         }[]>()
-        .notNull()
         .default([]),
 
     education: jsonb("education")
@@ -45,7 +42,6 @@ export const userResumes = pgTable('user_resumes', {
             institution: string;
             graduationYear: string;
         }[]>()
-        .notNull()
         .default([]),
 
     certificates: jsonb("certificates")

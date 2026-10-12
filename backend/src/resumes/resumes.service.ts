@@ -5,8 +5,9 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PDFParse } from 'pdf-parse';
 import { resumeSystemPrompt } from './prompt/resume.prompt';
 import { resumeJsonSchema } from './schema/resume.schema';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { userResumes } from 'src/db/schema';
+import { and, count, desc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class ResumesService {
@@ -42,8 +43,6 @@ export class ResumesService {
         if (!text) {
             throw new HttpException('Could not extract text from this PDF. It may be scanned or image-based.', HttpStatus.BAD_REQUEST);
         }
-
-        console.log("PDF Result Text => ", text)
 
         return text;
     }
@@ -102,9 +101,55 @@ export class ResumesService {
 
             const resumeText = await this.extractPdfText(file);
 
+            const s3Response = await this.uploadOnS3(file);
+
+            await this.db.insert(userResumes).values({
+                userId,
+                fileName: s3Response?.fileName,
+                fileKey: s3Response?.fileKey,
+                resumeText
+            }).returning()
+
+            return {
+                status: true,
+                statusCode: HttpStatus.CREATED,
+                message: "Resume uploaded successfully",
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while uploading resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+
+    async analyseResumeWithAi(
+        request: any,
+        resumeId: string
+    ) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        const userResume = await this.db.select({
+            id: userResumes.id,
+            resumeText: userResumes.resumeText
+        })
+            .from(userResumes)
+            .where(eq(userResumes.id, resumeId));
+
+        if (!userResume[0]) {
+            throw new HttpException("User resume not found", HttpStatus.NOT_FOUND);
+        }
+
+        try {
+
             const interaction = await this.ai.interactions.create({
                 model: process.env.GEMINI_AI_MODEL!,
-                input: resumeText,
+                input: userResume[0].resumeText,
                 system_instruction: resumeSystemPrompt,
                 response_format: {
                     type: 'text',
@@ -119,31 +164,187 @@ export class ResumesService {
 
             const response = JSON.parse(interaction.output_text)
 
-            const s3Response = await this.uploadOnS3(file);
+            if (!response.valid) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    message: response?.message
+                };
+            }
 
-            await this.db.insert(userResumes).values({
-                userId,
-                fileName: s3Response?.fileName,
-                fileKey: s3Response?.fileKey,
-                resumeText,
-                aiSummary: response?.aiSummary,
-                skills: response?.skills,
-                experience: response?.experience,
-                education: response?.education,
-                certificates: response?.certificates
-            }).returning()
+            await this.db.update(userResumes).set({
+                aiSummary: response.aiSummary,
+                skills: response.skills,
+                experience: response.experience,
+                education: response.education,
+                certificates: response.certificates,
+            }).where(eq(userResumes.id, resumeId)).returning()
 
             return {
                 status: true,
-                statusCode: HttpStatus.CREATED,
-                message: "Resume uploaded successfully"
+                statusCode: HttpStatus.OK,
+                message: "Resume analysis completed successfully",
+                response
             }
 
         } catch (error) {
             console.error(error)
-            throw new HttpException("Something went wrong while uploading resume", HttpStatus.INTERNAL_SERVER_ERROR)
+            throw new HttpException("Something went wrong while analysing resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+
+    }
+
+
+    async getUserResumes(
+        request: any,
+        page?: string,
+        limit?: string
+    ) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        const pageNumber = page ? Number(page) : 1
+        const limitNumber = limit ? Number(limit) : 10
+
+        try {
+
+            const [allUserResumes, [{ totalCount }]] = await Promise.all([
+                this.db.select()
+                    .from(userResumes)
+                    .where(eq(userResumes.userId, userId))
+                    .orderBy(desc(userResumes.createdAt))
+                    .limit(limitNumber)
+                    .offset((pageNumber - 1) * limitNumber),
+
+                this.db.select({ totalCount: count() })
+                    .from(userResumes)
+                    .where(eq(userResumes.userId, userId))
+            ])
+
+            const lastPage = Math.ceil(totalCount / limitNumber);
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: allUserResumes,
+                currentPage: pageNumber,
+                hasNextPage: pageNumber < lastPage,
+                hasPreviousPage: pageNumber > 1,
+                lastPage: lastPage,
+                totalCount: totalCount,
+                message: "User resumes fetched successfully"
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while fetching user resumes", HttpStatus.INTERNAL_SERVER_ERROR)
         }
     }
 
+
+    async getResumeById(
+        request: any,
+        resumeId: string
+    ) {
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        if (!resumeId) {
+            throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
+        }
+
+        try {
+            const [resume] = await this.db.select()
+                .from(userResumes)
+                .where(
+                    and(
+                        eq(userResumes.id, resumeId),
+                        eq(userResumes.userId, userId)
+                    )
+                );
+
+            if (!resume) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "User resume not found"
+                }
+            }
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: resume,
+                message: "Resume fetched successfully"
+            }
+
+        } catch (error) {
+            console.error(error);
+            throw new HttpException("Something went wrong while fetching resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+
+    async deleteResume(
+        request: any,
+        resumeId: string
+    ) {
+
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        if (!resumeId) {
+            throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
+        }
+
+        try {
+            const [resume] = await this.db.select()
+                .from(userResumes)
+                .where(
+                    and(
+                        eq(userResumes.id, resumeId),
+                        eq(userResumes.userId, userId)
+                    )
+                );
+
+            if (!resume) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "User resume not found"
+                }
+            }
+
+            const deleteResume = new DeleteObjectCommand({
+                Bucket: process.env.S3_BUCKET,
+                Key: `${resume.fileKey}`,
+            });
+
+            await this.client.send(deleteResume);
+
+            await this.db.delete(userResumes)
+                .where(eq(userResumes.id, resumeId));
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                message: "Resume deleted successfully"
+            }
+
+        } catch (error) {
+            console.error(error);
+            throw new HttpException("Something went wrong while deleting resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
 
 }

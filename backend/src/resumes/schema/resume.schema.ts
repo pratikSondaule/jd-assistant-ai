@@ -1,6 +1,12 @@
 export const resumeJsonSchema = {
     type: "object",
     properties: {
+        valid: {
+            type: "boolean"
+        },
+        message: {
+            type: "string"
+        },
         aiSummary: {
             type: "string"
         },
@@ -69,6 +75,8 @@ export const resumeJsonSchema = {
         }
     },
     required: [
+        "valid",
+        "message",
         "aiSummary",
         "skills",
         "experience",
