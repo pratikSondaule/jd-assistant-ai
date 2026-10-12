@@ -6,6 +6,7 @@ import {
     varchar,
 } from "drizzle-orm/pg-core";
 import { jobAnalysis } from "./jobAnalysis.schema";
+import { userResumes } from "./userResumes.schema";
 
 export const users = pgTable('users', {
     id: uuid("id")
@@ -36,6 +37,7 @@ export const users = pgTable('users', {
 
 export const usersRelations = relations(users, ({ many }) => ({
     jobAnalysis: many(jobAnalysis),
+    userResumes: many(userResumes),
 }));
 
 export type Users = typeof users.$inferSelect;

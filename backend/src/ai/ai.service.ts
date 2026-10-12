@@ -1,8 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { StartChatDto } from './dto/startChat.dto';
-import { jdJsonSchema } from './jdSchema';
-import { jdSystemPrompt } from './prompt';
+import { jdJsonSchema } from './schema/jd.schema';
+import { jdSystemPrompt } from './prompt/jd.prompt';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobAnalysis } from '../db/schema/index';
@@ -136,8 +136,8 @@ export class AiService {
             throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
         }
 
-        const pageNumber = page ? Math.max(1, Number(page)) : 1
-        const limitNumber = limit ? Math.max(1, Number(limit)) : 10
+        const pageNumber = page ? Number(page) : 1
+        const limitNumber = limit ? Number(limit) : 10
 
         try {
 
