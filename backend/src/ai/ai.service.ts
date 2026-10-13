@@ -56,7 +56,7 @@ export class AiService {
                 };
             }
 
-            await this.db.insert(jobAnalysis).values({
+            const [jdAnalysis] = await this.db.insert(jobAnalysis).values({
                 userId,
                 jobDescription: data.message,
                 jobTitle: response.jobTitle,
@@ -74,7 +74,7 @@ export class AiService {
             return {
                 status: true,
                 statusCode: HttpStatus.OK,
-                response,
+                jdAnalysis
             };
 
         } catch (error) {

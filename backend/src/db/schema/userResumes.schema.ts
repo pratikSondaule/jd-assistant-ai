@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/_relations";
 import { users } from "./users.schema";
 import { jsonb } from "drizzle-orm/pg-core";
+import { resumeMatches } from "./resumeMatches.schema";
 
 export const userResumes = pgTable('user_resumes', {
     id: uuid('id')
@@ -57,11 +58,12 @@ export const userResumes = pgTable('user_resumes', {
         .notNull(),
 })
 
-export const userResumesRelations = relations(userResumes, ({ one }) => ({
+export const userResumesRelations = relations(userResumes, ({ one, many }) => ({
     user: one(users, {
         fields: [userResumes.userId],
         references: [users.id]
-    })
+    }),
+    resumeMatches: many(resumeMatches),
 }))
 
 export type UserResumes = typeof userResumes.$inferSelect;

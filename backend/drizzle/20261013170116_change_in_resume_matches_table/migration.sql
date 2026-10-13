@@ -1,0 +1,1 @@
+ALTER TABLE "resume_matches" RENAME COLUMN "job_description_id" TO "job_analysis_id";
