@@ -7,6 +7,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { users } from "./users.schema";
 import { relations } from "drizzle-orm/_relations";
+import { resumeMatches } from "./resumeMatches.schema";
 
 export const jobAnalysis = pgTable('job_analysis', {
     id: uuid("id")
@@ -63,11 +64,12 @@ export const jobAnalysis = pgTable('job_analysis', {
 });
 
 
-export const jobAnalysisRelations = relations(jobAnalysis, ({ one }) => ({
+export const jobAnalysisRelations = relations(jobAnalysis, ({ one, many }) => ({
     user: one(users, {
         fields: [jobAnalysis.userId],
         references: [users.id],
     }),
+    resumeMatches: many(resumeMatches),
 }));
 
 export type JobAnalysis = typeof jobAnalysis.$inferSelect;
