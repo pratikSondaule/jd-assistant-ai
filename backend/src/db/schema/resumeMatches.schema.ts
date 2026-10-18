@@ -1,7 +1,12 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+// Header row for one analysis (resume x job). Per-requirement results
+// moved to resume_match_items, so the old jsonb requiredSkills /
+// matchingSkills / missingSkills / niceToHaveSkills columns are gone
+// (they can all be derived from the items).
+import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "./users.schema";
 import { userResumes } from "./userResumes.schema";
-import { jobAnalysis } from "./jobAnalysis.schema";
+import { jobs } from "./jobs.schema";
+import { resumeMatchItems } from "./resumeMatchItems.schema";
 import { relations } from "drizzle-orm/_relations";
 
 export const resumeMatches = pgTable('resume_matches', {
@@ -17,31 +22,11 @@ export const resumeMatches = pgTable('resume_matches', {
         .notNull()
         .references(() => userResumes.id),
 
-    jobAnalysisId: uuid('job_analysis_id')
+    jobId: uuid('job_id')
         .notNull()
-        .references(() => jobAnalysis.id),
+        .references(() => jobs.id),
 
     matchScore: integer('match_score')
-        .notNull(),
-
-    requiredSkills: jsonb('required_skills')
-        .$type<{
-            skill: string;
-            status: 'matched' | 'partial' | 'missing';
-            evidence: string;
-        }[]>()
-        .notNull(),
-
-    matchingSkills: jsonb('matching_skills')
-        .$type<string[]>()
-        .default([]),
-
-    missingSkills: jsonb('missing_skills')
-        .$type<string[]>()
-        .default([]),
-
-    niceToHaveSkills: jsonb('nice_to_have_skills')
-        .$type<string[]>()
         .notNull(),
 
     experienceAlignment: text('experience_alignment')
@@ -60,10 +45,11 @@ export const resumeMatches = pgTable('resume_matches', {
 
     updatedAt: timestamp('updated_at')
         .defaultNow()
+        .$onUpdate(() => new Date())
         .notNull(),
 })
 
-export const resumeMatchesRelations = relations(resumeMatches, ({ one }) => ({
+export const resumeMatchesRelations = relations(resumeMatches, ({ one, many }) => ({
     user: one(users, {
         fields: [resumeMatches.userId],
         references: [users.id],
@@ -72,10 +58,11 @@ export const resumeMatchesRelations = relations(resumeMatches, ({ one }) => ({
         fields: [resumeMatches.resumeId],
         references: [userResumes.id],
     }),
-    jobAnalysis: one(jobAnalysis, {
-        fields: [resumeMatches.jobAnalysisId],
-        references: [jobAnalysis.id],
+    job: one(jobs, {
+        fields: [resumeMatches.jobId],
+        references: [jobs.id],
     }),
+    items: many(resumeMatchItems),
 }));
 
 export type ResumeMatches = typeof resumeMatches.$inferSelect;

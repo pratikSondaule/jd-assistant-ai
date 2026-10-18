@@ -5,7 +5,7 @@ import { jdJsonSchema } from './schema/jd.schema';
 import { jdSystemPrompt } from './prompt/jd.prompt';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobAnalysis } from '../db/schema/index';
+// import { jobAnalysis } from '../db/schema/index';
 import { and, count, desc, eq } from 'drizzle-orm';
 
 @Injectable()
@@ -56,25 +56,25 @@ export class AiService {
                 };
             }
 
-            const [jdAnalysis] = await this.db.insert(jobAnalysis).values({
-                userId,
-                jobDescription: data.message,
-                jobTitle: response.jobTitle,
-                company: response.company,
-                location: response.location,
-                experience: response.experience,
-                salaryRange: response.salaryRange,
-                employmentType: response.employmentType,
-                responsibilities: response.responsibilities,
-                requiredSkills: response.requiredSkills,
-                niceToHaveSkills: response.niceToHaveSkills,
-                education: response.education,
-            }).returning();
+            // const [jdAnalysis] = await this.db.insert(jobAnalysis).values({
+            //     userId,
+            //     jobDescription: data.message,
+            //     jobTitle: response.jobTitle,
+            //     company: response.company,
+            //     location: response.location,
+            //     experience: response.experience,
+            //     salaryRange: response.salaryRange,
+            //     employmentType: response.employmentType,
+            //     responsibilities: response.responsibilities,
+            //     requiredSkills: response.requiredSkills,
+            //     niceToHaveSkills: response.niceToHaveSkills,
+            //     education: response.education,
+            // }).returning();
 
             return {
                 status: true,
                 statusCode: HttpStatus.OK,
-                jdAnalysis
+                // jdAnalysis
             };
 
         } catch (error) {
@@ -93,34 +93,34 @@ export class AiService {
             throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
         }
 
-        try {
-            const [jdAnalysis] = await this.db.select()
-                .from(jobAnalysis)
-                .where(
-                    and(
-                        eq(jobAnalysis.id, id),
-                        eq(jobAnalysis.userId, userId)
-                    )
-                )
+        // try {
+        //     const [jdAnalysis] = await this.db.select()
+        //         .from(jobAnalysis)
+        //         .where(
+        //             and(
+        //                 eq(jobAnalysis.id, id),
+        //                 eq(jobAnalysis.userId, userId)
+        //             )
+        //         )
 
-            if (!jdAnalysis) {
-                return {
-                    status: false,
-                    statusCode: HttpStatus.NOT_FOUND,
-                    message: "Job description analysis not found"
-                }
-            }
+        //     if (!jdAnalysis) {
+        //         return {
+        //             status: false,
+        //             statusCode: HttpStatus.NOT_FOUND,
+        //             message: "Job description analysis not found"
+        //         }
+        //     }
 
-            return {
-                status: true,
-                statusCode: HttpStatus.OK,
-                data: jdAnalysis,
-                message: "Fetched job analysis successfully"
-            }
-        } catch (error) {
-            console.error(error)
-            throw new HttpException("Something went wrong while fetching job analysis", HttpStatus.INTERNAL_SERVER_ERROR)
-        }
+        //     return {
+        //         status: true,
+        //         statusCode: HttpStatus.OK,
+        //         data: jdAnalysis,
+        //         message: "Fetched job analysis successfully"
+        //     }
+        // } catch (error) {
+        //     console.error(error)
+        //     throw new HttpException("Something went wrong while fetching job analysis", HttpStatus.INTERNAL_SERVER_ERROR)
+        // }
     }
 
 
@@ -139,39 +139,39 @@ export class AiService {
         const pageNumber = page ? Number(page) : 1
         const limitNumber = limit ? Number(limit) : 10
 
-        try {
+        // try {
 
-            const [allJdAnalysis, [{ totalCount }]] = await Promise.all([
-                this.db.select()
-                    .from(jobAnalysis)
-                    .where(eq(jobAnalysis.userId, userId))
-                    .orderBy(desc(jobAnalysis.createdAt))
-                    .limit(limitNumber)
-                    .offset((pageNumber - 1) * limitNumber),
+        //     const [allJdAnalysis, [{ totalCount }]] = await Promise.all([
+        //         this.db.select()
+        //             .from(jobAnalysis)
+        //             .where(eq(jobAnalysis.userId, userId))
+        //             .orderBy(desc(jobAnalysis.createdAt))
+        //             .limit(limitNumber)
+        //             .offset((pageNumber - 1) * limitNumber),
 
-                this.db.select({ totalCount: count() })
-                    .from(jobAnalysis)
-                    .where(eq(jobAnalysis.userId, userId)),
-            ])
+        //         this.db.select({ totalCount: count() })
+        //             .from(jobAnalysis)
+        //             .where(eq(jobAnalysis.userId, userId)),
+        //     ])
 
-            const lastPage = Math.ceil(totalCount / limitNumber)
+        //     const lastPage = Math.ceil(totalCount / limitNumber)
 
-            return {
-                status: true,
-                statusCode: HttpStatus.OK,
-                data: allJdAnalysis,
-                currentPage: pageNumber,
-                hasNextPage: pageNumber < lastPage,
-                hasPreviousPage: pageNumber > 1,
-                lastPage: lastPage,
-                totalCount: totalCount,
-                message: "Fetched all job analysis successfully"
-            }
+        //     return {
+        //         status: true,
+        //         statusCode: HttpStatus.OK,
+        //         data: allJdAnalysis,
+        //         currentPage: pageNumber,
+        //         hasNextPage: pageNumber < lastPage,
+        //         hasPreviousPage: pageNumber > 1,
+        //         lastPage: lastPage,
+        //         totalCount: totalCount,
+        //         message: "Fetched all job analysis successfully"
+        //     }
 
-        } catch (error) {
-            console.error(error)
-            throw new HttpException("Something went wrong while fetching all job analysis", HttpStatus.INTERNAL_SERVER_ERROR)
-        }
+        // } catch (error) {
+        //     console.error(error)
+        //     throw new HttpException("Something went wrong while fetching all job analysis", HttpStatus.INTERNAL_SERVER_ERROR)
+        // }
     }
 
 }

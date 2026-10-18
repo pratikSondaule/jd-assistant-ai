@@ -1,8 +1,11 @@
-import { pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm/_relations";
 import { users } from "./users.schema";
 import { jsonb } from "drizzle-orm/pg-core";
 import { resumeMatches } from "./resumeMatches.schema";
+import { resumeChunks } from "./resumeChunks.schema";
+
+export const embeddingStatusEnum = pgEnum("embedding_status", ["PENDING", "READY", "FAILED"]);
 
 export const userResumes = pgTable('user_resumes', {
     id: uuid('id')
@@ -37,6 +40,14 @@ export const userResumes = pgTable('user_resumes', {
         }[]>()
         .default([]),
 
+    projects: jsonb("projects")
+        .$type<{
+            name: string;
+            description: string;
+            techStack: string[];
+        }[]>()
+        .default([]),
+
     education: jsonb("education")
         .$type<{
             degree: string;
@@ -49,12 +60,17 @@ export const userResumes = pgTable('user_resumes', {
         .$type<string[]>()
         .default([]),
 
+    embeddingStatus: embeddingStatusEnum("embedding_status")
+        .notNull()
+        .default("PENDING"),
+
     createdAt: timestamp('created_at')
         .defaultNow()
         .notNull(),
 
     updatedAt: timestamp('updated_at')
         .defaultNow()
+        .$onUpdate(() => new Date())
         .notNull(),
 })
 
@@ -63,6 +79,7 @@ export const userResumesRelations = relations(userResumes, ({ one, many }) => ({
         fields: [userResumes.userId],
         references: [users.id]
     }),
+    chunks: many(resumeChunks),
     resumeMatches: many(resumeMatches),
 }))
 
