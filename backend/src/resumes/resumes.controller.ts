@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ResumesService } from './resumes.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -111,4 +111,26 @@ export class ResumesController {
         return this.resumesService.deleteResume(request, resumeId);
     }
 
+
+    @ApiOperation({ summary: "Match resume with job description" })
+    @ApiParam({
+        name: "resumeId",
+        required: true,
+        description: "User resume id"
+    })
+    @ApiParam({
+        name: "jobAnalysisId",
+        required: true,
+        description: "Job id"
+    })
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard('jwt'))
+    @Post(":resumeId/match/:jobAnalysisId")
+    async getResumeMatchWithJob(
+        @Req() request: Request,
+        @Param("resumeId") resumeId: string,
+        @Param("jobAnalysisId") jobAnalysisId: string
+    ) {
+        return this.resumesService.getResumeMatchWithJob(request, resumeId, jobAnalysisId);
+    }
 }

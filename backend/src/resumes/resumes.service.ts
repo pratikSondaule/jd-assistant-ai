@@ -6,8 +6,9 @@ import { PDFParse } from 'pdf-parse';
 import { resumeSystemPrompt } from './prompt/resume.prompt';
 import { resumeJsonSchema } from './schema/resume.schema';
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { userResumes } from 'src/db/schema';
+import { jobAnalysis, userResumes } from 'src/db/schema';
 import { and, count, desc, eq } from 'drizzle-orm';
+import { resumeMatchPrompt } from './prompt/resumeMatching.prompt';
 
 @Injectable()
 export class ResumesService {
@@ -344,6 +345,103 @@ export class ResumesService {
         } catch (error) {
             console.error(error);
             throw new HttpException("Something went wrong while deleting resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+
+    async getResumeMatchWithJob(
+        request: any,
+        resumeId: string,
+        jobAnalysisId: string
+    ) {
+        const userId = request?.user?.id;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        if (!resumeId) {
+            throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
+        }
+
+        if (!jobAnalysisId) {
+            throw new HttpException("Job analysis id is required", HttpStatus.BAD_REQUEST)
+        }
+
+        try {
+
+            const [userResume] = await this.db.select()
+                .from(userResumes)
+                .where(
+                    and(
+                        eq(userResumes.id, resumeId),
+                        eq(userResumes.userId, userId)
+                    )
+                );
+
+            const [jobAnalysisData] = await this.db.select()
+                .from(jobAnalysis)
+                .where(
+                    and(
+                        eq(jobAnalysis.id, jobAnalysisId),
+                        eq(jobAnalysis.userId, userId)
+                    )
+                );
+
+            if (!userResume) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "User resume not found"
+                }
+            }
+
+            if (!jobAnalysisData) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "Job analysis not found"
+                }
+            }
+
+            const resumeData = {
+                summary: userResume.aiSummary,
+                skills: userResume.skills,
+                experience: userResume.experience,
+                education: userResume.education,
+                certificates: userResume.certificates,
+            };
+
+            const jobData = {
+                jobTitle: jobAnalysisData.jobTitle,
+                requiredSkills: jobAnalysisData.requiredSkills,
+                niceToHaveSkills: jobAnalysisData.niceToHaveSkills,
+                responsibilities: jobAnalysisData.responsibilities,
+                experience: jobAnalysisData.experience,
+                education: jobAnalysisData.education,
+            };
+
+            const interaction = await this.ai.interactions.create({
+                model: process.env.GEMINI_AI_MODEL!,
+                input: resumeMatchPrompt(resumeData, jobData),
+                response_format: {
+                    type: 'text',
+                    mime_type: 'application/json',
+                    schema: resumeJsonSchema,
+                },
+            });
+
+            if (!interaction.output_text) {
+                throw new Error("Gemini did not return any output");
+            }
+
+            const response = JSON.parse(interaction.output_text);
+
+            return response
+
+        } catch (error) {
+            console.error(error);
+            throw new HttpException("Something went wrong while fetching resume matches", HttpStatus.INTERNAL_SERVER_ERROR)
         }
     }
 

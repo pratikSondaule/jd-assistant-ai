@@ -1,0 +1,1 @@
+ALTER TABLE "resume_matches" ALTER COLUMN "match_score" SET DATA TYPE integer USING "match_score"::integer;
