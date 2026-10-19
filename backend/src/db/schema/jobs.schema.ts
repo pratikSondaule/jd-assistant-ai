@@ -1,0 +1,61 @@
+import {
+    pgEnum,
+    pgTable,
+    text,
+    timestamp,
+    uuid,
+    varchar,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm/_relations";
+import { users } from "./users.schema";
+import { jobRequirements } from "./jobRequirements.schema";
+import { resumeMatches } from "./resumeMatches.schema";
+
+export const jobStatusEnum = pgEnum("job_status", ["Draft", "Published", "Closed"]);
+
+export const jobs = pgTable('jobs', {
+    id: uuid("id")
+        .defaultRandom()
+        .primaryKey(),
+
+    createdBy: uuid("created_by")
+        .notNull()
+        .references(() => users.id),
+
+    title: varchar("title").notNull(),
+    company: varchar("company").notNull(),
+    description: text("description").notNull(),
+
+    // JDs often omit these, so they must be nullable
+    // (notNull would make extraction fail on real-world JDs).
+    location: varchar("location"),
+    experience: varchar("experience"),
+    salaryRange: varchar("salary_range"),
+    employmentType: varchar("employment_type"),
+    education: varchar("education"),
+
+    status: jobStatusEnum("status")
+        .notNull()
+        .default("Published"),
+
+    createdAt: timestamp("created_at")
+        .defaultNow()
+        .notNull(),
+
+    updatedAt: timestamp("updated_at")
+        .defaultNow()
+        .$onUpdate(() => new Date())
+        .notNull(),
+});
+
+export const jobsRelations = relations(jobs, ({ one, many }) => ({
+    creator: one(users, {
+        fields: [jobs.createdBy],
+        references: [users.id],
+    }),
+    requirements: many(jobRequirements),
+    resumeMatches: many(resumeMatches),
+}));
+
+export type Job = typeof jobs.$inferSelect;
+export type NewJob = typeof jobs.$inferInsert;

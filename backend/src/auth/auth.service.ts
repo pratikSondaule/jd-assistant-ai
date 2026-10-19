@@ -9,6 +9,7 @@ import md5 from 'md5';
 import { GenerateAccessTokenDto } from './dto/generateAccessToken.dto';
 import { RegisterUserDto } from './dto/registerUser.dto';
 
+
 @Injectable()
 export class AuthService {
 
@@ -18,11 +19,12 @@ export class AuthService {
         private readonly jwtService: JwtService,
     ) { }
 
-    async generateTokens(user: { id: string; email: string; name: string; }) {
+    async generateTokens(user: { id: string; email: string; name: string; role: string; }) {
         const payload = {
             id: user.id,
             email: user.email,
             name: user.name,
+            role: user.role,
         };
 
         const access_token = await this.jwtService.signAsync(payload, {
@@ -71,6 +73,7 @@ export class AuthService {
                 name: data.name,
                 email: data.email,
                 password: hashedPassword,
+                role: data.role
             })
 
             return {
@@ -191,6 +194,7 @@ export class AuthService {
                     id: user.id,
                     email: user.email,
                     name: user.name,
+                    role: user.role,
                 },
                 {
                     secret: process.env.JWT_SECRET,

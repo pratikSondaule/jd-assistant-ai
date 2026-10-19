@@ -1,12 +1,23 @@
 import { relations } from "drizzle-orm/_relations";
 import {
+    pgEnum,
     pgTable,
     timestamp,
     uuid,
     varchar,
 } from "drizzle-orm/pg-core";
-import { jobAnalysis } from "./jobAnalysis.schema";
+import { jobs } from "./jobs.schema";
 import { userResumes } from "./userResumes.schema";
+
+export enum UserRole {
+    COMPANY = "COMPANY",
+    CANDIDATE = "CANDIDATE",
+}
+
+export const userRoleEnum = pgEnum("user_role", [
+    UserRole.COMPANY,
+    UserRole.CANDIDATE
+]);
 
 export const users = pgTable('users', {
     id: uuid("id")
@@ -26,17 +37,22 @@ export const users = pgTable('users', {
 
     profileImage: varchar("profile_image"),
 
+    role: userRoleEnum("role")
+        .notNull()
+        .default(UserRole.CANDIDATE),
+
     createdAt: timestamp("created_at")
         .defaultNow()
         .notNull(),
 
     updatedAt: timestamp("updated_at")
         .defaultNow()
+        .$onUpdate(() => new Date())
         .notNull(),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
-    jobAnalysis: many(jobAnalysis),
+    jobs: many(jobs),
     userResumes: many(userResumes),
 }));
 
