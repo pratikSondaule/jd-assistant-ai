@@ -1,7 +1,3 @@
-// Header row for one analysis (resume x job). Per-requirement results
-// moved to resume_match_items, so the old jsonb requiredSkills /
-// matchingSkills / missingSkills / niceToHaveSkills columns are gone
-// (they can all be derived from the items).
 import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "./users.schema";
 import { userResumes } from "./userResumes.schema";
