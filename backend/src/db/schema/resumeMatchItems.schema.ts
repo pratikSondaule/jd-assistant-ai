@@ -1,4 +1,3 @@
-// One row per JD requirement, per analysis: verdict + evidence + suggestion.
 import {
     index,
     jsonb,
@@ -13,11 +12,27 @@ import { relations } from "drizzle-orm/_relations";
 import { resumeMatches } from "./resumeMatches.schema";
 import { jobRequirements } from "./jobRequirements.schema";
 
-export const matchStatusEnum = pgEnum("match_status", ["matched", "partial", "missing"]);
+export enum MatchStatus {
+    MATCHED = "matched",
+    PARTIAL = "partial",
+    MISSING = "missing",
+}
 
-// wording_gap  = candidate likely has it, resume doesn't say it well -> tailor wording
-// skill_gap    = candidate genuinely lacks it -> learn it / add only if true
-export const gapTypeEnum = pgEnum("gap_type", ["wording_gap", "skill_gap"]);
+export enum GapType {
+    WORDING_GAP = "wording_gap",
+    SKILL_GAP = "skill_gap",
+}
+
+export const matchStatusEnum = pgEnum("match_status", [
+    MatchStatus.MATCHED,
+    MatchStatus.PARTIAL,
+    MatchStatus.MISSING
+]);
+
+export const gapTypeEnum = pgEnum("gap_type", [
+    GapType.WORDING_GAP,
+    GapType.SKILL_GAP
+]);
 
 export const resumeMatchItems = pgTable('resume_match_items', {
     id: uuid('id')
@@ -34,8 +49,6 @@ export const resumeMatchItems = pgTable('resume_match_items', {
 
     status: matchStatusEnum('status').notNull(),
 
-    // Best retrieval similarity found. Store it: you'll need these
-    // numbers to calibrate your "missing" threshold.
     topSimilarity: real('top_similarity'),
 
     evidence: text('evidence'),

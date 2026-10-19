@@ -10,8 +10,8 @@ import { jobs } from "./jobs.schema";
 import { userResumes } from "./userResumes.schema";
 
 export enum UserRole {
-    COMPANY = "COMPANY",
-    CANDIDATE = "CANDIDATE",
+    COMPANY = "company",
+    CANDIDATE = "candidate",
 }
 
 export const userRoleEnum = pgEnum("user_role", [

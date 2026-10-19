@@ -11,7 +11,17 @@ import { users } from "./users.schema";
 import { jobRequirements } from "./jobRequirements.schema";
 import { resumeMatches } from "./resumeMatches.schema";
 
-export const jobStatusEnum = pgEnum("job_status", ["Draft", "Published", "Closed"]);
+export enum JobStatus {
+    DRAFT = "draft",
+    PUBLISHED = "published",
+    CLOSED = "closed",
+}
+
+export const jobStatusEnum = pgEnum("job_status", [
+    JobStatus.DRAFT,
+    JobStatus.PUBLISHED,
+    JobStatus.CLOSED
+]);
 
 export const jobs = pgTable('jobs', {
     id: uuid("id")
@@ -25,9 +35,6 @@ export const jobs = pgTable('jobs', {
     title: varchar("title").notNull(),
     company: varchar("company").notNull(),
     description: text("description").notNull(),
-
-    // JDs often omit these, so they must be nullable
-    // (notNull would make extraction fail on real-world JDs).
     location: varchar("location"),
     experience: varchar("experience"),
     salaryRange: varchar("salary_range"),
@@ -36,7 +43,7 @@ export const jobs = pgTable('jobs', {
 
     status: jobStatusEnum("status")
         .notNull()
-        .default("Published"),
+        .default(JobStatus.DRAFT),
 
     createdAt: timestamp("created_at")
         .defaultNow()

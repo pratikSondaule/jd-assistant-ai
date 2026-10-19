@@ -1,6 +1,3 @@
-// One row per requirement extracted from the JD (replaces the
-// requiredSkills / niceToHaveSkills / responsibilities arrays).
-// Embedded ONCE when the job is created, reused for every candidate.
 import {
     index,
     integer,
@@ -15,10 +12,16 @@ import { relations } from "drizzle-orm/_relations";
 import { jobs } from "./jobs.schema";
 import { EMBEDDING_DIMENSIONS } from "../../constants/embedding.constants";
 
+export enum RequirementType {
+    REQUIRED_SKILL = "required_skill",
+    NICE_TO_HAVE = "nice_to_have",
+    RESPONSIBILITY = "responsibility",
+}
+
 export const requirementTypeEnum = pgEnum("requirement_type", [
-    "required_skill",
-    "nice_to_have",
-    "responsibility",
+    RequirementType.REQUIRED_SKILL,
+    RequirementType.NICE_TO_HAVE,
+    RequirementType.RESPONSIBILITY,
 ]);
 
 export const jobRequirements = pgTable('job_requirements', {

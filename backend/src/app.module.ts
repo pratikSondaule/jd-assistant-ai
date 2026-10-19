@@ -7,6 +7,7 @@ import { DrizzleModule } from '@nestjs/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { AuthModule } from './auth/auth.module';
 import { ResumesModule } from './resumes/resumes.module';
+import { JobsModule } from './jobs/jobs.module';
 import * as schema from './db/schema/index';
 
 @Module({
@@ -31,6 +32,7 @@ import * as schema from './db/schema/index';
     AiModule,
     AuthModule,
     ResumesModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
