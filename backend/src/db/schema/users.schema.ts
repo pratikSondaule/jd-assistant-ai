@@ -9,7 +9,15 @@ import {
 import { jobs } from "./jobs.schema";
 import { userResumes } from "./userResumes.schema";
 
-export const userRoleEnum = pgEnum("user_role", ["COMPANY", "CANDIDATE"]);
+export enum UserRole {
+    COMPANY = "COMPANY",
+    CANDIDATE = "CANDIDATE",
+}
+
+export const userRoleEnum = pgEnum("user_role", [
+    UserRole.COMPANY,
+    UserRole.CANDIDATE
+]);
 
 export const users = pgTable('users', {
     id: uuid("id")
@@ -31,7 +39,7 @@ export const users = pgTable('users', {
 
     role: userRoleEnum("role")
         .notNull()
-        .default("CANDIDATE"),
+        .default(UserRole.CANDIDATE),
 
     createdAt: timestamp("created_at")
         .defaultNow()
@@ -44,8 +52,8 @@ export const users = pgTable('users', {
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
-    jobs: many(jobs),            // jobs posted (company role)
-    userResumes: many(userResumes), // resumes uploaded (candidate role)
+    jobs: many(jobs),
+    userResumes: many(userResumes),
 }));
 
 export type Users = typeof users.$inferSelect;

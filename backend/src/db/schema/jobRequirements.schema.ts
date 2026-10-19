@@ -2,6 +2,7 @@
 // requiredSkills / niceToHaveSkills / responsibilities arrays).
 // Embedded ONCE when the job is created, reused for every candidate.
 import {
+    index,
     integer,
     pgEnum,
     pgTable,
@@ -35,14 +36,15 @@ export const jobRequirements = pgTable('job_requirements', {
 
     position: integer("position").notNull().default(0),
 
-    // Used as the QUERY vector against resume chunks, so it needs no
-    // vector index of its own.
     embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
 
     createdAt: timestamp("created_at")
         .defaultNow()
         .notNull(),
-});
+}, (table) => [
+    index('job_requirements_embedding_index').using('hnsw', table.embedding.op('vector_cosine_ops')),
+    index('job_requirements_job_id_index').on(table.jobId),
+]);
 
 export const jobRequirementsRelations = relations(jobRequirements, ({ one }) => ({
     job: one(jobs, {

@@ -42,6 +42,7 @@ export const resumeChunks = pgTable('resume_chunks', {
         .defaultNow()
         .notNull(),
 }, (table) => [
+    index("resume_chunks_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
     index("resume_chunks_resume_id_idx").on(table.resumeId),
 ]);
 
