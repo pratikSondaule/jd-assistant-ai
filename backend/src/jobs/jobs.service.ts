@@ -1,11 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobRequirements, jobs, JobStatus } from 'src/db/schema';
+import { jobRequirements, jobs, JobStatus, UserRole } from 'src/db/schema';
 import { CreateJobDto } from './dto/createJob.dto';
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { jobSystemPrompt } from './prompts/job.prompt';
 import { jobJsonSchema } from './schema/job.schema';
+import { and, count, desc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class JobsService {
@@ -45,8 +46,6 @@ export class JobsService {
         ];
 
         const embeddings = await this.embeddings.embedDocuments(reqs.map((r) => r.text));
-
-        console.log("Embedding ", embeddings);
 
         try {
 
@@ -112,6 +111,105 @@ export class JobsService {
         } catch (error) {
             console.error(error)
             throw new HttpException("Something went wrong while extracting job requirements", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+
+    }
+
+
+    async getAllJobs(
+        request: any,
+        page?: string,
+        limit?: string
+    ) {
+
+        const userId = request?.user?.id;
+        const userRole = request?.user?.role;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        const pageNumber = page ? Number(page) : 1
+        const limitNumber = limit ? Number(limit) : 10
+
+        try {
+
+            const whereCondition = userRole === UserRole.COMPANY
+                ? eq(jobs.createdBy, userId)
+                : undefined;
+
+            const [allJobs, [{ totalCount }]] = await Promise.all([
+                this.db.select()
+                    .from(jobs)
+                    .where(whereCondition)
+                    .orderBy(desc(jobs.createdAt))
+                    .limit(limitNumber)
+                    .offset((pageNumber - 1) * limitNumber),
+
+                this.db.select({ totalCount: count() })
+                    .from(jobs)
+                    .where(whereCondition),
+            ])
+
+            const lastPage = Math.ceil(totalCount / limitNumber)
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: allJobs,
+                currentPage: pageNumber,
+                hasNextPage: pageNumber < lastPage,
+                hasPreviousPage: pageNumber > 1,
+                lastPage: lastPage,
+                totalCount: totalCount,
+                message: "Fetched all jobs successfully"
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while fetching all jobs", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+
+    }
+
+
+    async getJobById(request: any, jobId: string) {
+
+        const userId = request?.user?.id;
+        const userRole = request?.user?.role;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        try {
+
+            const whereCondition = userRole === UserRole.COMPANY
+                ? and(eq(jobs.id, jobId), eq(jobs.createdBy, userId))
+                : eq(jobs.id, jobId);
+
+            const [job] = await this.db.select()
+                .from(jobs)
+                .where(whereCondition)
+
+            if (!job) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "Job not found"
+                }
+            }
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: job,
+                message: "Job fetched successfully"
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while fetching job", HttpStatus.INTERNAL_SERVER_ERROR)
         }
 
     }
