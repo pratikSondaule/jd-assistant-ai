@@ -1,6 +1,6 @@
-import { Body, Controller, Post, Req, SetMetadata, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, SetMetadata, UseGuards } from '@nestjs/common';
 import { JobsService } from './jobs.service';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CreateJobDto } from './dto/createJob.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RoleGuard } from 'src/guards/role.guard';
@@ -26,5 +26,31 @@ export class JobsController {
         return this.jobsService.createJob(request, data);
     }
 
+
+    @ApiOperation({ summary: "Get all jobs" })
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard("jwt"))
+    @Get("")
+    getAllJobs(
+        @Req() request: Request,
+    ) {
+        return this.jobsService.getAllJobs(request);
+    }
+
+
+    @ApiOperation({ summary: "Get job by id" })
+    @ApiBearerAuth()
+    @ApiParam({
+        name: "jobId",
+        description: "Job id"
+    })
+    @UseGuards(AuthGuard("jwt"))
+    @Get(":jobId")
+    getJobById(
+        @Req() request: Request,
+        @Param("jobId") jobId: string
+    ) {
+        return this.jobsService.getJobById(request, jobId);
+    }
 
 }
