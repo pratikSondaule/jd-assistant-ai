@@ -114,11 +114,21 @@ export class ResumesService {
 
         try {
 
-            const resumeText = await this.extractPdfText(file);
+            // Run PDF text extraction and S3 upload in parallel to reduce latency
+            const [resumeText, s3Response] = await Promise.all([
+                this.extractPdfText(file),
+                this.uploadOnS3(file)
+            ]);
 
-            const s3Response = await this.uploadOnS3(file);
+            const extractedData: any = await this.extractResumeWithAi(resumeText);
 
-            const extractedData = await this.extractResumeWithAi(resumeText);
+            if (extractedData && extractedData.valid === false) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    message: extractedData.message || "Invalid resume provided",
+                };
+            }
 
             const [resume] = await this.db.insert(userResumes).values({
                 userId,
@@ -130,14 +140,19 @@ export class ResumesService {
                 experience: extractedData?.experience,
                 projects: extractedData?.projects,
                 education: extractedData?.education,
-                certificates: extractedData?.certificates
-            }).returning()
+                certificates: extractedData?.certificates,
+                embeddingStatus: EmbeddingStatus.PENDING
+            }).returning();
 
-            await this.embedResume(resume);
+            // Run embedding asynchronously in background; does not block the response
+            this.embedResume(resume).catch((err) => {
+                console.error("Background embedResume error:", err);
+            });
 
             return {
                 status: true,
                 statusCode: HttpStatus.CREATED,
+                data: resume,
                 message: "Resume uploaded successfully",
             }
 

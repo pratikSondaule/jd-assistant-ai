@@ -10,6 +10,7 @@ import { relations } from "drizzle-orm/_relations";
 import { users } from "./users.schema";
 import { jobRequirements } from "./jobRequirements.schema";
 import { resumeMatches } from "./resumeMatches.schema";
+import { embeddingStatusEnum, EmbeddingStatus } from "./userResumes.schema";
 
 export enum JobStatus {
     DRAFT = "draft",
@@ -44,6 +45,10 @@ export const jobs = pgTable('jobs', {
     status: jobStatusEnum("status")
         .notNull()
         .default(JobStatus.DRAFT),
+
+    embeddingStatus: embeddingStatusEnum("embedding_status")
+        .notNull()
+        .default(EmbeddingStatus.PENDING),
 
     createdAt: timestamp("created_at")
         .defaultNow()
