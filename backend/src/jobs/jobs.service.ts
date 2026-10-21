@@ -214,4 +214,51 @@ export class JobsService {
 
     }
 
+
+    async deleteJob(request: any, jobId: string) {
+
+        const userId = request?.user?.id;
+        const userRole = request?.user?.role;
+
+        if (!userId) {
+            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        }
+
+        try {
+
+            const whereCondition = userRole === UserRole.COMPANY
+                ? and(eq(jobs.id, jobId), eq(jobs.createdBy, userId))
+                : eq(jobs.id, jobId);
+
+            const [job] = await this.db.select()
+                .from(jobs)
+                .where(whereCondition)
+
+            if (!job) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "Job not found"
+                }
+            }
+
+            await this.db.delete(jobRequirements)
+                .where(eq(jobRequirements.jobId, jobId));
+
+            await this.db.delete(jobs)
+                .where(eq(jobs.id, jobId));
+
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                message: "Job deleted successfully"
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while deleting job", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+
+    }
+
 }
