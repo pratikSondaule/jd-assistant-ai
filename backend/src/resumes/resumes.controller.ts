@@ -41,23 +41,6 @@ export class ResumesController {
     }
 
 
-    // @ApiOperation({ summary: "Analyse user resume with AI" })
-    // @ApiParam({
-    //     name: "resumeId",
-    //     required: true,
-    //     description: "User resume id"
-    // })
-    // @ApiBearerAuth()
-    // @UseGuards(AuthGuard('jwt'))
-    // @Post(":resumeId/analyse")
-    // async analyseResumeWithAi(
-    //     @Req() request: Request,
-    //     @Param("resumeId") resumeId: string
-    // ) {
-    //     return this.resumesService.analyseResumeWithAi(request, resumeId);
-    // }
-
-
     @ApiOperation({ summary: "Get user resumes with pagination" })
     @ApiQuery({
         name: "page",
@@ -114,26 +97,4 @@ export class ResumesController {
         return this.resumesService.deleteResume(request, resumeId);
     }
 
-
-    @ApiOperation({ summary: "Match resume with job description" })
-    @ApiParam({
-        name: "resumeId",
-        required: true,
-        description: "User resume id"
-    })
-    @ApiParam({
-        name: "jobAnalysisId",
-        required: true,
-        description: "Job id"
-    })
-    @ApiBearerAuth()
-    @UseGuards(AuthGuard('jwt'))
-    @Post(":resumeId/match/:jobAnalysisId")
-    async getResumeMatchWithJob(
-        @Req() request: Request,
-        @Param("resumeId") resumeId: string,
-        @Param("jobAnalysisId") jobAnalysisId: string
-    ) {
-        return this.resumesService.getResumeMatchWithJob(request, resumeId, jobAnalysisId);
-    }
 }
