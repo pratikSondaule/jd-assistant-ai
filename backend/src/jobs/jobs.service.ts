@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobRequirements, jobs, JobStatus, UserRole } from 'src/db/schema';
+import { EmbeddingStatus, jobRequirements, jobs, JobStatus, UserRole } from 'src/db/schema';
 import { CreateJobDto } from './dto/createJob.dto';
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { jobSystemPrompt } from './prompts/job.prompt';
@@ -37,54 +37,89 @@ export class JobsService {
             throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
         }
 
-        const extractedResponse = await this.extractJobRequirements(data.description)
-
-        const reqs = [
-            ...extractedResponse.requiredSkills.map((text) => ({ text, type: "required_skill" as const })),
-            ...extractedResponse.niceToHaveSkills.map((text) => ({ text, type: "nice_to_have" as const })),
-            ...extractedResponse.responsibilities.map((text) => ({ text, type: "responsibility" as const })),
-        ];
-
-        const embeddings = await this.embeddings.embedDocuments(reqs.map((r) => r.text));
-
         try {
 
-            const transaction = await this.db.transaction(async (tx) => {
-                const [job] = await tx.insert(jobs).values({
-                    createdBy: userId,
-                    title: data.title,
-                    company: data.company,
-                    description: data.description,
-                    location: data.location,
-                    experience: data.experience,
-                    education: data.education,
-                    salaryRange: data.salaryRange,
-                    employmentType: data.employmentType,
-                    status: JobStatus.PUBLISHED
-                }).returning();
+            const [job] = await this.db.insert(jobs).values({
+                createdBy: userId,
+                title: data.title,
+                company: data.company,
+                description: data.description,
+                location: data.location,
+                experience: data.experience,
+                education: data.education,
+                salaryRange: data.salaryRange,
+                employmentType: data.employmentType,
+                status: JobStatus.PUBLISHED
+            }).returning();
 
-                await tx.insert(jobRequirements).values(
-                    reqs.map((r, i) => ({
-                        jobId: job.id,
-                        text: r.text,
-                        type: r.type,
-                        position: i,
-                        embedding: embeddings[i]
-                    })),
-                );
-
-                return job
+            this.processJobRequirements(job.id, data.description).catch((err) => {
+                console.error("Background processJobRequirements error:", err);
             });
 
             return {
                 status: true,
-                statusCode: HttpStatus.OK,
-                data: transaction,
+                statusCode: HttpStatus.CREATED,
+                data: job,
                 message: "Job created successfully"
-            }
+            };
         } catch (error) {
             console.error(error)
             throw new HttpException("Something went wrong while creating job", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+
+    async processJobRequirements(jobId: string, description: string) {
+        try {
+            const extractedResponse: any = await this.extractJobRequirements(description);
+
+            if (extractedResponse && extractedResponse.valid === false) {
+                console.warn(`Job ${jobId} description was marked invalid by AI: ${extractedResponse.message}`);
+                await this.db
+                    .update(jobs)
+                    .set({ embeddingStatus: EmbeddingStatus.FAILED })
+                    .where(eq(jobs.id, jobId));
+                return;
+            }
+
+            const reqs = [
+                ...(extractedResponse.requiredSkills ?? []).map((text: string) => ({ text, type: "required_skill" as const })),
+                ...(extractedResponse.niceToHaveSkills ?? []).map((text: string) => ({ text, type: "nice_to_have" as const })),
+                ...(extractedResponse.responsibilities ?? []).map((text: string) => ({ text, type: "responsibility" as const })),
+            ];
+
+            if (reqs.length === 0) {
+                await this.db
+                    .update(jobs)
+                    .set({ embeddingStatus: EmbeddingStatus.READY })
+                    .where(eq(jobs.id, jobId));
+                return;
+            }
+
+            const embeddings = await this.embeddings.embedDocuments(reqs.map((r) => r.text));
+
+            await this.db.transaction(async (tx) => {
+                await tx.insert(jobRequirements).values(
+                    reqs.map((r, i) => ({
+                        jobId: jobId,
+                        text: r.text,
+                        type: r.type,
+                        position: i,
+                        embedding: embeddings[i]
+                    }))
+                );
+
+                await tx
+                    .update(jobs)
+                    .set({ embeddingStatus: EmbeddingStatus.READY })
+                    .where(eq(jobs.id, jobId));
+            });
+        } catch (error) {
+            console.error(`Error processing job requirements for job ${jobId}:`, error);
+            await this.db
+                .update(jobs)
+                .set({ embeddingStatus: EmbeddingStatus.FAILED })
+                .where(eq(jobs.id, jobId));
         }
     }
 

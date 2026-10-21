@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ADD COLUMN "embedding_status" "embedding_status" DEFAULT 'pending'::"embedding_status" NOT NULL;
