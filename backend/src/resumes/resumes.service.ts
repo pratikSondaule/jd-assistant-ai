@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -6,9 +5,7 @@ import { PDFParse } from 'pdf-parse';
 import { resumeSystemPrompt } from './prompt/resume.prompt';
 import { resumeJsonSchema } from './schema/resume.schema';
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-// import { jobAnalysis, userResumes } from 'src/db/schema';
 import { and, count, desc, eq } from 'drizzle-orm';
-import { resumeMatchPrompt } from './prompt/resumeMatching.prompt';
 import { ChatOllama, OllamaEmbeddings } from '@langchain/ollama';
 import { EmbeddingStatus, resumeChunks, userResumes } from 'src/db/schema';
 
@@ -279,39 +276,39 @@ export class ResumesService {
         const pageNumber = page ? Number(page) : 1
         const limitNumber = limit ? Number(limit) : 10
 
-        // try {
+        try {
 
-        //     const [allUserResumes, [{ totalCount }]] = await Promise.all([
-        //         this.db.select()
-        //             .from(userResumes)
-        //             .where(eq(userResumes.userId, userId))
-        //             .orderBy(desc(userResumes.createdAt))
-        //             .limit(limitNumber)
-        //             .offset((pageNumber - 1) * limitNumber),
+            const [allUserResumes, [{ totalCount }]] = await Promise.all([
+                this.db.select()
+                    .from(userResumes)
+                    .where(eq(userResumes.userId, userId))
+                    .orderBy(desc(userResumes.createdAt))
+                    .limit(limitNumber)
+                    .offset((pageNumber - 1) * limitNumber),
 
-        //         this.db.select({ totalCount: count() })
-        //             .from(userResumes)
-        //             .where(eq(userResumes.userId, userId))
-        //     ])
+                this.db.select({ totalCount: count() })
+                    .from(userResumes)
+                    .where(eq(userResumes.userId, userId))
+            ])
 
-        //     const lastPage = Math.ceil(totalCount / limitNumber);
+            const lastPage = Math.ceil(totalCount / limitNumber);
 
-        //     return {
-        //         status: true,
-        //         statusCode: HttpStatus.OK,
-        //         data: allUserResumes,
-        //         currentPage: pageNumber,
-        //         hasNextPage: pageNumber < lastPage,
-        //         hasPreviousPage: pageNumber > 1,
-        //         lastPage: lastPage,
-        //         totalCount: totalCount,
-        //         message: "User resumes fetched successfully"
-        //     }
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: allUserResumes,
+                currentPage: pageNumber,
+                hasNextPage: pageNumber < lastPage,
+                hasPreviousPage: pageNumber > 1,
+                lastPage: lastPage,
+                totalCount: totalCount,
+                message: "User resumes fetched successfully"
+            }
 
-        // } catch (error) {
-        //     console.error(error)
-        //     throw new HttpException("Something went wrong while fetching user resumes", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while fetching user resumes", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
 
@@ -329,35 +326,35 @@ export class ResumesService {
             throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
         }
 
-        // try {
-        //     const [resume] = await this.db.select()
-        //         .from(userResumes)
-        //         .where(
-        //             and(
-        //                 eq(userResumes.id, resumeId),
-        //                 eq(userResumes.userId, userId)
-        //             )
-        //         );
+        try {
+            const [resume] = await this.db.select()
+                .from(userResumes)
+                .where(
+                    and(
+                        eq(userResumes.id, resumeId),
+                        eq(userResumes.userId, userId)
+                    )
+                );
 
-        //     if (!resume) {
-        //         return {
-        //             status: false,
-        //             statusCode: HttpStatus.NOT_FOUND,
-        //             message: "User resume not found"
-        //         }
-        //     }
+            if (!resume) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "User resume not found"
+                }
+            }
 
-        //     return {
-        //         status: true,
-        //         statusCode: HttpStatus.OK,
-        //         data: resume,
-        //         message: "Resume fetched successfully"
-        //     }
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                data: resume,
+                message: "Resume fetched successfully"
+            }
 
-        // } catch (error) {
-        //     console.error(error);
-        //     throw new HttpException("Something went wrong while fetching resume", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
+        } catch (error) {
+            console.error(error);
+            throw new HttpException("Something went wrong while fetching resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
 
@@ -376,141 +373,47 @@ export class ResumesService {
             throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
         }
 
-        // try {
-        //     const [resume] = await this.db.select()
-        //         .from(userResumes)
-        //         .where(
-        //             and(
-        //                 eq(userResumes.id, resumeId),
-        //                 eq(userResumes.userId, userId)
-        //             )
-        //         );
+        try {
+            const [resume] = await this.db.select()
+                .from(userResumes)
+                .where(
+                    and(
+                        eq(userResumes.id, resumeId),
+                        eq(userResumes.userId, userId)
+                    )
+                );
 
-        //     if (!resume) {
-        //         return {
-        //             status: false,
-        //             statusCode: HttpStatus.NOT_FOUND,
-        //             message: "User resume not found"
-        //         }
-        //     }
+            if (!resume) {
+                return {
+                    status: false,
+                    statusCode: HttpStatus.NOT_FOUND,
+                    message: "User resume not found"
+                }
+            }
 
-        //     const deleteResume = new DeleteObjectCommand({
-        //         Bucket: process.env.S3_BUCKET,
-        //         Key: `${resume.fileKey}`,
-        //     });
+            const deleteResume = new DeleteObjectCommand({
+                Bucket: process.env.S3_BUCKET,
+                Key: `${resume.fileKey}`,
+            });
 
-        //     await this.client.send(deleteResume);
+            await this.client.send(deleteResume);
 
-        //     await this.db.delete(userResumes)
-        //         .where(eq(userResumes.id, resumeId));
+            await this.db.delete(resumeChunks)
+                .where(eq(resumeChunks.resumeId, resumeId));
 
-        //     return {
-        //         status: true,
-        //         statusCode: HttpStatus.OK,
-        //         message: "Resume deleted successfully"
-        //     }
+            await this.db.delete(userResumes)
+                .where(eq(userResumes.id, resumeId));
 
-        // } catch (error) {
-        //     console.error(error);
-        //     throw new HttpException("Something went wrong while deleting resume", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
-    }
+            return {
+                status: true,
+                statusCode: HttpStatus.OK,
+                message: "Resume deleted successfully"
+            }
 
-
-    async getResumeMatchWithJob(
-        request: any,
-        resumeId: string,
-        jobAnalysisId: string
-    ) {
-        const userId = request?.user?.id;
-
-        if (!userId) {
-            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+        } catch (error) {
+            console.error(error);
+            throw new HttpException("Something went wrong while deleting resume", HttpStatus.INTERNAL_SERVER_ERROR)
         }
-
-        if (!resumeId) {
-            throw new HttpException("Resume id is required", HttpStatus.BAD_REQUEST)
-        }
-
-        if (!jobAnalysisId) {
-            throw new HttpException("Job analysis id is required", HttpStatus.BAD_REQUEST)
-        }
-
-        // try {
-
-        //     const [userResume] = await this.db.select()
-        //         .from(userResumes)
-        //         .where(
-        //             and(
-        //                 eq(userResumes.id, resumeId),
-        //                 eq(userResumes.userId, userId)
-        //             )
-        //         );
-
-        //     const [jobAnalysisData] = await this.db.select()
-        //         .from(jobAnalysis)
-        //         .where(
-        //             and(
-        //                 eq(jobAnalysis.id, jobAnalysisId),
-        //                 eq(jobAnalysis.userId, userId)
-        //             )
-        //         );
-
-        //     if (!userResume) {
-        //         return {
-        //             status: false,
-        //             statusCode: HttpStatus.NOT_FOUND,
-        //             message: "User resume not found"
-        //         }
-        //     }
-
-        //     if (!jobAnalysisData) {
-        //         return {
-        //             status: false,
-        //             statusCode: HttpStatus.NOT_FOUND,
-        //             message: "Job analysis not found"
-        //         }
-        //     }
-
-        //     const resumeData = {
-        //         summary: userResume.aiSummary,
-        //         skills: userResume.skills,
-        //         experience: userResume.experience,
-        //         education: userResume.education,
-        //         certificates: userResume.certificates,
-        //     };
-
-        //     const jobData = {
-        //         jobTitle: jobAnalysisData.jobTitle,
-        //         requiredSkills: jobAnalysisData.requiredSkills,
-        //         niceToHaveSkills: jobAnalysisData.niceToHaveSkills,
-        //         responsibilities: jobAnalysisData.responsibilities,
-        //         experience: jobAnalysisData.experience,
-        //         education: jobAnalysisData.education,
-        //     };
-
-        //     const interaction = await this.ai.interactions.create({
-        //         model: process.env.GEMINI_AI_MODEL!,
-        //         input: resumeMatchPrompt(resumeData, jobData),
-        //         response_format: {
-        //             type: 'text',
-        //             mime_type: 'application/json',
-        //             schema: resumeJsonSchema,
-        //         },
-        //     });
-
-        //     if (!interaction.output_text) {
-        //         throw new Error("Gemini did not return any output");
-        //     }
-
-        //     const response = JSON.parse(interaction.output_text);
-
-        //     return response
-
-        // } catch (error) {
-        //     console.error(error);
-        //     throw new HttpException("Something went wrong while fetching resume matches", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
     }
 
 }
