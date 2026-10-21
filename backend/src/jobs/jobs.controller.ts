@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, SetMetadata, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, SetMetadata, UseGuards } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CreateJobDto } from './dto/createJob.dto';
@@ -51,6 +51,23 @@ export class JobsController {
         @Param("jobId") jobId: string
     ) {
         return this.jobsService.getJobById(request, jobId);
+    }
+
+
+    @ApiOperation({ summary: "Delete job" })
+    @ApiBearerAuth()
+    @ApiParam({
+        name: "jobId",
+        description: "Job id"
+    })
+    @SetMetadata("roles", [UserRole.COMPANY])
+    @UseGuards(AuthGuard("jwt"), RoleGuard)
+    @Delete(":jobId")
+    deleteJob(
+        @Req() request: Request,
+        @Param("jobId") jobId: string
+    ) {
+        return this.jobsService.deleteJob(request, jobId);
     }
 
 }
