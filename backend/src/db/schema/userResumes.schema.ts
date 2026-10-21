@@ -5,7 +5,17 @@ import { jsonb } from "drizzle-orm/pg-core";
 import { resumeMatches } from "./resumeMatches.schema";
 import { resumeChunks } from "./resumeChunks.schema";
 
-export const embeddingStatusEnum = pgEnum("embedding_status", ["PENDING", "READY", "FAILED"]);
+export enum EmbeddingStatus {
+    PENDING = "pending",
+    READY = "ready",
+    FAILED = "failed"
+}
+
+export const embeddingStatusEnum = pgEnum("embedding_status", [
+    EmbeddingStatus.PENDING,
+    EmbeddingStatus.READY,
+    EmbeddingStatus.FAILED
+]);
 
 export const userResumes = pgTable('user_resumes', {
     id: uuid('id')
@@ -25,7 +35,7 @@ export const userResumes = pgTable('user_resumes', {
     resumeText: text('resume_text')
         .notNull(),
 
-    aiSummary: text('ai_summary'),
+    summary: text('summary'),
 
     skills: jsonb('skills')
         .$type<string[]>()
@@ -43,7 +53,7 @@ export const userResumes = pgTable('user_resumes', {
     projects: jsonb("projects")
         .$type<{
             name: string;
-            description: string;
+            responsibilities: string[];
             techStack: string[];
         }[]>()
         .default([]),
@@ -62,7 +72,7 @@ export const userResumes = pgTable('user_resumes', {
 
     embeddingStatus: embeddingStatusEnum("embedding_status")
         .notNull()
-        .default("PENDING"),
+        .default(EmbeddingStatus.PENDING),
 
     createdAt: timestamp('created_at')
         .defaultNow()

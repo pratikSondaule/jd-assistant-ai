@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, SetMetadata, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ResumesService } from './resumes.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { UserRole } from 'src/db/schema';
+import { RoleGuard } from 'src/guards/role.guard';
 
 @ApiTags("Resumes")
 @Controller('resumes')
@@ -27,7 +29,8 @@ export class ResumesController {
             required: ['file']
         }
     })
-    @UseGuards(AuthGuard('jwt'))
+    @SetMetadata("roles", [UserRole.CANDIDATE])
+    @UseGuards(AuthGuard('jwt'), RoleGuard)
     @Post("upload")
     @UseInterceptors(FileInterceptor("file"))
     async uploadResume(
@@ -38,21 +41,21 @@ export class ResumesController {
     }
 
 
-    @ApiOperation({ summary: "Analyse user resume with AI" })
-    @ApiParam({
-        name: "resumeId",
-        required: true,
-        description: "User resume id"
-    })
-    @ApiBearerAuth()
-    @UseGuards(AuthGuard('jwt'))
-    @Post(":resumeId/analyse")
-    async analyseResumeWithAi(
-        @Req() request: Request,
-        @Param("resumeId") resumeId: string
-    ) {
-        return this.resumesService.analyseResumeWithAi(request, resumeId);
-    }
+    // @ApiOperation({ summary: "Analyse user resume with AI" })
+    // @ApiParam({
+    //     name: "resumeId",
+    //     required: true,
+    //     description: "User resume id"
+    // })
+    // @ApiBearerAuth()
+    // @UseGuards(AuthGuard('jwt'))
+    // @Post(":resumeId/analyse")
+    // async analyseResumeWithAi(
+    //     @Req() request: Request,
+    //     @Param("resumeId") resumeId: string
+    // ) {
+    //     return this.resumesService.analyseResumeWithAi(request, resumeId);
+    // }
 
 
     @ApiOperation({ summary: "Get user resumes with pagination" })

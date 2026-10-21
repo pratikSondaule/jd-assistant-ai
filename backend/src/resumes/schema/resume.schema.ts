@@ -7,7 +7,7 @@ export const resumeJsonSchema = {
         message: {
             type: "string"
         },
-        aiSummary: {
+        summary: {
             type: "string"
         },
         skills: {
@@ -67,6 +67,34 @@ export const resumeJsonSchema = {
                 ]
             }
         },
+        projects: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string"
+                    },
+                    responsibilities: {
+                        type: "array",
+                        items: {
+                            type: "string"
+                        }
+                    },
+                    techStack: {
+                        type: "array",
+                        items: {
+                            type: "string"
+                        }
+                    }
+                },
+                required: [
+                    "name",
+                    "description",
+                    "techStack"
+                ]
+            }
+        },
         certificates: {
             type: "array",
             items: {
@@ -77,7 +105,7 @@ export const resumeJsonSchema = {
     required: [
         "valid",
         "message",
-        "aiSummary",
+        "summary",
         "skills",
         "experience",
         "education",

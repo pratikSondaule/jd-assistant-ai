@@ -9,19 +9,29 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 // import { jobAnalysis, userResumes } from 'src/db/schema';
 import { and, count, desc, eq } from 'drizzle-orm';
 import { resumeMatchPrompt } from './prompt/resumeMatching.prompt';
+import { ChatOllama, OllamaEmbeddings } from '@langchain/ollama';
+import { EmbeddingStatus, resumeChunks, userResumes } from 'src/db/schema';
 
 @Injectable()
 export class ResumesService {
-    private ai: GoogleGenAI;
-    private client: S3Client
+    private ai: ChatOllama;
+    private embeddings: OllamaEmbeddings;
+    private client: S3Client;
 
     constructor(
         @InjectDrizzle()
         private readonly db: NodePgDatabase
     ) {
-        this.ai = new GoogleGenAI({
-            apiKey: process.env.GEMINI_API_KEY
-        })
+        this.ai = new ChatOllama({
+            model: "llama3.2:1b",
+            baseUrl: "http://localhost:11434",
+            temperature: 0.1,
+        });
+
+        this.embeddings = new OllamaEmbeddings({
+            model: "nomic-embed-text",
+            baseUrl: "http://localhost:11434",
+        });
 
         this.client = new S3Client({
             region: "auto",
@@ -38,14 +48,18 @@ export class ResumesService {
             data: file.buffer
         });
 
-        const result = await parser.getText()
-        const text = result.text.trim();
+        try {
 
-        if (!text) {
-            throw new HttpException('Could not extract text from this PDF. It may be scanned or image-based.', HttpStatus.BAD_REQUEST);
+            const result = await parser.getText()
+            const text = result.text.trim();
+            return text;
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while extracting resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        } finally {
+            await parser.destroy();
         }
-
-        return text;
     }
 
 
@@ -98,101 +112,140 @@ export class ResumesService {
             throw new HttpException("Please upload your resume", HttpStatus.BAD_REQUEST)
         }
 
-        // try {
+        try {
 
-        //     const resumeText = await this.extractPdfText(file);
+            const resumeText = await this.extractPdfText(file);
 
-        //     const s3Response = await this.uploadOnS3(file);
+            const s3Response = await this.uploadOnS3(file);
 
-        //     await this.db.insert(userResumes).values({
-        //         userId,
-        //         fileName: s3Response?.fileName,
-        //         fileKey: s3Response?.fileKey,
-        //         resumeText
-        //     }).returning()
+            const extractedData = await this.extractResumeWithAi(resumeText);
 
-        //     return {
-        //         status: true,
-        //         statusCode: HttpStatus.CREATED,
-        //         message: "Resume uploaded successfully",
-        //     }
+            const [resume] = await this.db.insert(userResumes).values({
+                userId,
+                fileName: s3Response?.fileName,
+                fileKey: s3Response?.fileKey,
+                resumeText,
+                summary: extractedData?.summary,
+                skills: extractedData?.skills,
+                experience: extractedData?.experience,
+                projects: extractedData?.projects,
+                education: extractedData?.education,
+                certificates: extractedData?.certificates
+            }).returning()
 
-        // } catch (error) {
-        //     console.error(error)
-        //     throw new HttpException("Something went wrong while uploading resume", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
+            await this.embedResume(resume);
+
+            return {
+                status: true,
+                statusCode: HttpStatus.CREATED,
+                message: "Resume uploaded successfully",
+            }
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while uploading resume", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
 
-    async analyseResumeWithAi(
-        request: any,
-        resumeId: string
-    ) {
+    async extractResumeWithAi(resumeText: string) {
 
-        const userId = request?.user?.id;
+        try {
 
-        if (!userId) {
-            throw new HttpException("User not found", HttpStatus.UNAUTHORIZED)
+            const structuredOutput = this.ai.withStructuredOutput(resumeJsonSchema)
+
+            const response = await structuredOutput.invoke([
+                {
+                    role: 'system',
+                    content: resumeSystemPrompt,
+                },
+                {
+                    role: 'user',
+                    content: resumeText
+                }
+            ])
+
+            return response
+
+        } catch (error) {
+            console.error(error)
+            throw new HttpException("Something went wrong while extracting resume", HttpStatus.INTERNAL_SERVER_ERROR)
         }
 
-        // const userResume = await this.db.select({
-        //     id: userResumes.id,
-        //     resumeText: userResumes.resumeText
-        // })
-        //     .from(userResumes)
-        //     .where(eq(userResumes.id, resumeId));
+    }
 
-        // if (!userResume[0]) {
-        //     throw new HttpException("User resume not found", HttpStatus.NOT_FOUND);
-        // }
 
-        // try {
+    buildResumeChunks(resume: any) {
 
-        //     const interaction = await this.ai.interactions.create({
-        //         model: process.env.GEMINI_AI_MODEL!,
-        //         input: userResume[0].resumeText,
-        //         system_instruction: resumeSystemPrompt,
-        //         response_format: {
-        //             type: 'text',
-        //             mime_type: 'application/json',
-        //             schema: resumeJsonSchema
-        //         }
-        //     });
+        const chunks: {
+            section: "experience" | "projects" | "skills" | "certificates";
+            content: string;
+        }[] = [];
 
-        //     if (!interaction.output_text) {
-        //         throw new Error("Gemini did not return any output");
-        //     }
+        for (const e of resume.experience ?? []) {
+            chunks.push({
+                section: "experience",
+                content: `${e.role} at ${e.company} (${e.duration}). ${e.responsibilities.join(" ")}`,
+            });
+        }
 
-        //     const response = JSON.parse(interaction.output_text)
+        for (const p of resume.projects ?? []) {
+            chunks.push({
+                section: "projects",
+                content: `Project: ${p.name}. ${p.responsibilities.join(", ")} Tech: ${p.techStack.join(", ")}.`,
+            });
+        }
 
-        //     if (!response.valid) {
-        //         return {
-        //             status: false,
-        //             statusCode: HttpStatus.BAD_REQUEST,
-        //             message: response?.message
-        //         };
-        //     }
+        if (resume.skills?.length) {
+            chunks.push({ section: "skills", content: `Skills: ${resume.skills.join(", ")}` });
+        }
 
-        //     await this.db.update(userResumes).set({
-        //         aiSummary: response.aiSummary,
-        //         skills: response.skills,
-        //         experience: response.experience,
-        //         education: response.education,
-        //         certificates: response.certificates,
-        //     }).where(eq(userResumes.id, resumeId)).returning()
+        if (resume.certificates?.length) {
+            chunks.push({
+                section: "certificates",
+                content: `Certifications: ${resume.certificates.join(", ")}`,
+            });
+        }
 
-        //     return {
-        //         status: true,
-        //         statusCode: HttpStatus.OK,
-        //         message: "Resume analysis completed successfully",
-        //         response
-        //     }
+        return chunks;
 
-        // } catch (error) {
-        //     console.error(error)
-        //     throw new HttpException("Something went wrong while analysing resume", HttpStatus.INTERNAL_SERVER_ERROR)
-        // }
+    }
 
+
+    async embedResume(resume: any) {
+        try {
+            const chunks = this.buildResumeChunks(resume);
+            if (!chunks.length) throw new Error("No chunks produced");
+
+            const vectors = await this.embeddings.embedDocuments(chunks.map((c) => c.content));
+            if (vectors.length !== chunks.length) throw new Error("Embedding count mismatch");
+
+            await this.db.transaction(async (tx) => {
+                await tx.delete(resumeChunks).where(eq(resumeChunks.resumeId, resume.id));
+                await tx.insert(resumeChunks).values(
+                    chunks.map((c, i) => ({
+                        resumeId: resume.id,
+                        section: c.section,
+                        content: c.content,
+                        position: i,
+                        embedding: vectors[i],
+                    })),
+                );
+                await tx
+                    .update(userResumes)
+                    .set({ embeddingStatus: EmbeddingStatus.READY })
+                    .where(eq(userResumes.id, resume.id));
+            });
+
+            return true;
+        } catch (error) {
+            console.error(error);
+            await this.db
+                .update(userResumes)
+                .set({ embeddingStatus: EmbeddingStatus.FAILED })
+                .where(eq(userResumes.id, resume.id));
+            return false;
+        }
     }
 
 
